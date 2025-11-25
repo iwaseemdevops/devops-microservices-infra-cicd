@@ -25,7 +25,7 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 dir("${TF_DIR}") {
-                    sh 'terraform init -backend-config="key=dev/terraform.tfstate"'
+                    sh 'terraform init'
                 }
             }
         }
