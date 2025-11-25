@@ -14,7 +14,7 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/iwaseemdevops/terraform-app-infra.git'
+                git branch: 'main', url: 'https://github.com/iwaseemdevops/devops-microservices-infra-cicd.git'
             }
         }
 
