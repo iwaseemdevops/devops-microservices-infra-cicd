@@ -1,0 +1,33 @@
+# Terraform
+**/.terraform/*
+**/.terraform
+*.tfstate
+*.tfstate.*
+*.backup
+*.log
+
+# Terraform plan files
+*.tfplan
+
+# Sensitive variable files
+*.tfvars
+*.tfvars.json
+
+# Local override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Jenkins
+secrets/
+*.jenkins
+workspace/
+*.xml
+
+# VS Code
+.vscode/
