@@ -3,7 +3,7 @@ pipeline {
 
     parameters {
         booleanParam(name: 'DESTROY', defaultValue: false, description: 'Check to destroy infrastructure')
-        string(name: 'KEY_NAME', defaultValue: 'your-ssh-key-name', description: 'SSH key pair name for EC2')
+        string(name: 'KEY_NAME', defaultValue: '', description: 'SSH key pair name for EC2')
     }
 
     environment {
@@ -44,32 +44,28 @@ pipeline {
             steps {
                 dir("${TF_DIR}") {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
-                        sh 'terraform plan -out=tfplan -var="key_name=${params.KEY_NAME}" -parallelism=1'
+                        sh "terraform plan -out=tfplan -var='key_name=${params.KEY_NAME}' -parallelism=1"
                     }
                 }
             }
         }
 
         stage('Terraform Apply') {
-            when {
-                branch 'main'
-            }
+            when { branch 'main' }
             steps {
                 dir("${TF_DIR}") {
                     input message: 'Approve Apply?'
-                    sh 'terraform apply -auto-approve -var="key_name=${params.KEY_NAME}" tfplan -parallelism=1'
+                    sh "terraform apply -auto-approve -var='key_name=${params.KEY_NAME}' tfplan -parallelism=1"
                 }
             }
         }
 
         stage('Terraform Destroy') {
-            when {
-                expression { return params.DESTROY == true }
-            }
+            when { expression { return params.DESTROY == true } }
             steps {
                 dir("${TF_DIR}") {
                     input message: 'Confirm destroy?'
-                    sh 'terraform destroy -auto-approve -var="key_name=${params.KEY_NAME}"'
+                    sh "terraform destroy -auto-approve -var='key_name=${params.KEY_NAME}'"
                 }
             }
         }
