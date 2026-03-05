@@ -10,6 +10,8 @@ pipeline {
         AWS_DEFAULT_REGION = 'ap-south-1'
         TF_VERSION = '1.9.7'
         TF_DIR = 'terraform-app/envs/dev'
+        BIN_DIR = "${env.HOME}/bin"
+        PATH = "${env.HOME}/bin:${env.PATH}"
     }
 
     stages {
@@ -22,25 +24,30 @@ pipeline {
         stage('Setup Terraform') {
             steps {
                 sh '''
-                  if ! command -v terraform &> /dev/null; then
-                    wget https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip
-                    unzip terraform_${TF_VERSION}_linux_amd64.zip
-                    sudo mv terraform /usr/local/bin/
-                  fi
-                  terraform version
+                    mkdir -p ${BIN_DIR}
+                    if ! command -v terraform &> /dev/null; then
+                        wget https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip
+                        unzip -o terraform_${TF_VERSION}_linux_amd64.zip -d ${BIN_DIR}
+                        chmod +x ${BIN_DIR}/terraform
+                    fi
+                    terraform version
                 '''
             }
         }
 
         stage('Terraform Init') {
+            when { expression { return !params.DESTROY } }
             steps {
                 dir("${TF_DIR}") {
-                    sh 'terraform init'
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                        sh 'terraform init'
+                    }
                 }
             }
         }
 
         stage('Terraform Plan') {
+            when { expression { return !params.DESTROY } }
             steps {
                 dir("${TF_DIR}") {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
@@ -51,11 +58,18 @@ pipeline {
         }
 
         stage('Terraform Apply') {
-            when { branch 'main' }
+            when {
+                allOf {
+                    branch 'main'
+                    expression { return !params.DESTROY }
+                }
+            }
             steps {
                 dir("${TF_DIR}") {
-                    input message: 'Approve Apply?'
-                    sh "terraform apply -auto-approve -var='key_name=${params.KEY_NAME}' tfplan -parallelism=1"
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                        input message: 'Approve Apply?'
+                        sh "terraform apply -auto-approve -parallelism=1 tfplan"
+                    }
                 }
             }
         }
@@ -64,8 +78,10 @@ pipeline {
             when { expression { return params.DESTROY == true } }
             steps {
                 dir("${TF_DIR}") {
-                    input message: 'Confirm destroy?'
-                    sh "terraform destroy -auto-approve -var='key_name=${params.KEY_NAME}'"
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                        input message: 'Confirm destroy?'
+                        sh "terraform destroy -auto-approve -var='key_name=${params.KEY_NAME}'"
+                    }
                 }
             }
         }
