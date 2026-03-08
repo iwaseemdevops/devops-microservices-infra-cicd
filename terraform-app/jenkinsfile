@@ -14,6 +14,7 @@ pipeline {
         BIN_DIR = "${env.HOME}/bin"
         PATH = "${env.HOME}/bin:${env.PATH}"
         USER = "ubuntu"
+        RETRIES = 3
     }
 
     stages {
@@ -43,7 +44,7 @@ pipeline {
             steps {
                 dir("${TF_DIR}") {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
-                        sh 'terraform init'
+                        sh 'terraform init -reconfigure'
                     }
                 }
             }
@@ -82,9 +83,13 @@ pipeline {
             steps {
                 script {
                     env.EC2_IP = sh(
-                        script: "cd ${TF_DIR} && terraform output -raw ec2_public_ip",
+                        script: "cd ${TF_DIR} && terraform output -raw app_server_public_ip || echo ''",
                         returnStdout: true
                     ).trim()
+
+                    if (!env.EC2_IP) {
+                        error "❌ EC2 Public IP not found! Check Terraform output."
+                    }
 
                     echo "EC2 IP: ${env.EC2_IP}"
                 }
@@ -94,24 +99,49 @@ pipeline {
         stage('Copy Docker Compose') {
             when { expression { return !params.DESTROY } }
             steps {
-                sh """
-                scp -o StrictHostKeyChecking=no \
-                ${APP_DIR}/docker-compose.yaml \
-                ${USER}@${EC2_IP}:/home/${USER}/
-                """
+                script {
+                    retry(env.RETRIES.toInteger()) {
+                        sh """
+                        scp -o StrictHostKeyChecking=no \
+                        ${APP_DIR}/docker-compose.yaml \
+                        ${USER}@${EC2_IP}:/home/${USER}/
+                        """
+                    }
+                }
             }
         }
 
         stage('Deploy Application') {
             when { expression { return !params.DESTROY } }
             steps {
-                sh """
-                ssh -o StrictHostKeyChecking=no ${USER}@${EC2_IP} << EOF
-                sudo docker compose down || true
-                sudo docker compose pull
-                sudo docker compose up -d
-                EOF
-                """
+                script {
+                    retry(env.RETRIES.toInteger()) {
+                        sh """
+                        ssh -o StrictHostKeyChecking=no ${USER}@${EC2_IP} << EOF
+                        sudo docker compose down || true
+                        sudo docker compose pull
+                        sudo docker compose up -d
+                        EOF
+                        """
+                    }
+
+                    // Health check
+                    sh """
+                    ssh -o StrictHostKeyChecking=no ${USER}@${EC2_IP} << EOF
+                    for i in {1..10}; do
+                        if curl -s http://localhost:3000/health | grep -q 'OK'; then
+                            echo '✅ Microservices are up'
+                            exit 0
+                        else
+                            echo 'Waiting for app...'
+                            sleep 5
+                        fi
+                    done
+                    echo '❌ App did not respond after 50s'
+                    exit 1
+                    EOF
+                    """
+                }
             }
         }
 
@@ -126,6 +156,7 @@ pipeline {
                 }
             }
         }
+
     }
 
     post {

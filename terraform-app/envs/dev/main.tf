@@ -51,6 +51,11 @@ module "app_server" {
               systemctl start docker
               systemctl enable docker
               usermod -aG docker ubuntu
+              # Install docker-compose plugin
+sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.1/docker-compose-$(uname -s)-$(uname -m)" \
+  -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+
               EOF
 
   instance_name = "app-server"
