@@ -46,11 +46,11 @@ module "app_server" {
   # Add user_data to install web server
   user_data = <<-EOF
               #!/bin/bash
-              sudo yum update -y
-              sudo yum install -y httpd
-              sudo systemctl enable httpd
-              sudo systemctl start httpd
-              echo "<h1>Hello from Microservices App Server</h1>" | sudo tee /var/www/html/index.html
+              apt update -y
+              apt install -y docker.io docker-compose
+              systemctl start docker
+              systemctl enable docker
+              usermod -aG docker ubuntu
               EOF
 
   instance_name = "app-server"

@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     parameters {
-        booleanParam(name: 'DESTROY', defaultValue: false, description: 'Check to destroy infrastructure')
+        booleanParam(name: 'DESTROY', defaultValue: false, description: 'Destroy infrastructure')
         string(name: 'KEY_NAME', defaultValue: '', description: 'SSH key pair name for EC2')
     }
 
@@ -10,11 +10,14 @@ pipeline {
         AWS_DEFAULT_REGION = 'ap-south-1'
         TF_VERSION = '1.9.7'
         TF_DIR = 'terraform-app/envs/dev'
+        APP_DIR = 'microservices-shop'
         BIN_DIR = "${env.HOME}/bin"
         PATH = "${env.HOME}/bin:${env.PATH}"
+        USER = "ubuntu"
     }
 
     stages {
+
         stage('Checkout Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/iwaseemdevops/devops-microservices-infra-cicd.git'
@@ -51,7 +54,7 @@ pipeline {
             steps {
                 dir("${TF_DIR}") {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
-                        sh "terraform plan -out=tfplan -var='key_name=${params.KEY_NAME}' -parallelism=1"
+                        sh "terraform plan -out=tfplan -var='key_name=${params.KEY_NAME}'"
                     }
                 }
             }
@@ -67,15 +70,53 @@ pipeline {
             steps {
                 dir("${TF_DIR}") {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
-                        input message: 'Approve Apply?'
-                        sh "terraform apply -auto-approve -parallelism=1 tfplan"
+                        input message: 'Approve Terraform Apply?'
+                        sh "terraform apply -auto-approve tfplan"
                     }
                 }
             }
         }
 
+        stage('Get EC2 Public IP') {
+            when { expression { return !params.DESTROY } }
+            steps {
+                script {
+                    env.EC2_IP = sh(
+                        script: "cd ${TF_DIR} && terraform output -raw ec2_public_ip",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "EC2 IP: ${env.EC2_IP}"
+                }
+            }
+        }
+
+        stage('Copy Docker Compose') {
+            when { expression { return !params.DESTROY } }
+            steps {
+                sh """
+                scp -o StrictHostKeyChecking=no \
+                ${APP_DIR}/docker-compose.yaml \
+                ${USER}@${EC2_IP}:/home/${USER}/
+                """
+            }
+        }
+
+        stage('Deploy Application') {
+            when { expression { return !params.DESTROY } }
+            steps {
+                sh """
+                ssh -o StrictHostKeyChecking=no ${USER}@${EC2_IP} << EOF
+                sudo docker compose down || true
+                sudo docker compose pull
+                sudo docker compose up -d
+                EOF
+                """
+            }
+        }
+
         stage('Terraform Destroy') {
-            when { expression { return params.DESTROY == true } }
+            when { expression { return params.DESTROY } }
             steps {
                 dir("${TF_DIR}") {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
@@ -91,12 +132,14 @@ pipeline {
         always {
             echo 'Pipeline finished.'
         }
-        failure {
-            echo '❌ Pipeline failed. Check logs!'
-        }
+
         success {
             archiveArtifacts artifacts: '**/tfplan', fingerprint: true
-            echo '✅ Terraform changes applied successfully.'
+            echo "Application deployed at http://${env.EC2_IP}:3000"
+        }
+
+        failure {
+            echo '❌ Pipeline failed. Check logs.'
         }
     }
 }
