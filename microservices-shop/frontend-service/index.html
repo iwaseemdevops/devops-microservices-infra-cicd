@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simple Shop - Professional E-Commerce</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --primary: #2c3e50;
+        --secondary: #3498db;
+        --accent: #e74c3c;
+        --success: #27ae60;
+        --warning: #f39c12;
+        --light-bg: #f8f9fa;
+        --dark-bg: #2c3e50;
+        --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        --hover-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+      }
+
+      body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .main-container {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        margin: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+      }
+
+      /* Header Styles */
+      .main-header {
+        background: linear-gradient(135deg, var(--primary), #1a2530);
+        color: white;
+        padding: 2rem 0;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .main-header::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+      }
+
+      .brand-section {
+        text-align: center;
+        position: relative;
+        z-index: 2;
+      }
+
+      .brand-logo {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        color: var(--secondary);
+      }
+
+      .brand-name {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        background: linear-gradient(45deg, #3498db, #2ecc71);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      .brand-tagline {
+        font-size: 1.2rem;
+        opacity: 0.9;
+        font-weight: 300;
+      }
+
+      /* Navigation */
+      .main-nav {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .nav-brand {
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+
+      .cart-badge {
+        background: var(--accent);
+        border-radius: 50%;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+      }
+
+      /* Content Sections */
+      .section-title {
+        color: var(--primary);
+        font-weight: 700;
+        margin: 2rem 0 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 3px solid var(--secondary);
+        display: inline-block;
+      }
+
+      /* Product Cards */
+      .product-card {
+        border: none;
+        border-radius: 15px;
+        transition: all 0.3s ease;
+        background: white;
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+        height: 100%;
+      }
+
+      .product-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--hover-shadow);
+      }
+
+      .product-image {
+        height: 200px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 4rem;
+      }
+
+      .product-price {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--success);
+      }
+
+      .product-rating {
+        color: var(--warning);
+      }
+
+      .btn-add-cart {
+        background: linear-gradient(135deg, var(--secondary), #2980b9);
+        border: none;
+        border-radius: 25px;
+        padding: 0.5rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
+
+      .btn-add-cart:hover {
+        transform: scale(1.05);
+        box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+      }
+
+      /* Offer Cards */
+      .offer-card {
+        background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+        border: none;
+        border-radius: 15px;
+        color: white;
+        transition: all 0.3s ease;
+        height: 100%;
+      }
+
+      .offer-card:nth-child(2) {
+        background: linear-gradient(135deg, #a29bfe, #6c5ce7);
+      }
+
+      .offer-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--hover-shadow);
+      }
+
+      .offer-badge {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+      }
+
+      .discount-amount {
+        font-size: 2rem;
+        font-weight: 700;
+        margin: 0.5rem 0;
+      }
+
+      /* Stats Section */
+      .stats-section {
+        background: linear-gradient(135deg, var(--primary), #34495e);
+        color: white;
+        padding: 3rem 0;
+        margin-top: 3rem;
+      }
+
+      .stat-item {
+        text-align: center;
+      }
+
+      .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--secondary);
+      }
+
+      .stat-label {
+        font-size: 1rem;
+        opacity: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      /* Footer */
+      .main-footer {
+        background: linear-gradient(135deg, var(--primary), #1a2530);
+        color: white;
+        padding: 3rem 0 2rem;
+        margin-top: auto;
+      }
+
+      .footer-content {
+        text-align: center;
+      }
+
+      .contact-info {
+        margin: 1rem 0;
+      }
+
+      .contact-item {
+        margin: 0.5rem 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+      }
+
+      .contact-item i {
+        color: var(--secondary);
+        width: 20px;
+      }
+
+      .social-links {
+        margin: 1.5rem 0;
+      }
+
+      .social-link {
+        display: inline-block;
+        width: 40px;
+        height: 40px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        text-align: center;
+        line-height: 40px;
+        margin: 0 0.5rem;
+        transition: all 0.3s ease;
+        color: white;
+        text-decoration: none;
+      }
+
+      .social-link:hover {
+        background: var(--secondary);
+        transform: translateY(-3px);
+        color: white;
+      }
+
+      .copyright {
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: 0.9rem;
+        opacity: 0.8;
+      }
+
+      /* Loading Animation */
+      .loading-spinner {
+        display: none;
+        text-align: center;
+        padding: 2rem;
+      }
+
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid var(--secondary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Responsive Design */
+      @media (max-width: 768px) {
+        .main-container {
+          margin: 10px;
+          border-radius: 15px;
+        }
+
+        .brand-name {
+          font-size: 2rem;
+        }
+
+        .product-image {
+          height: 150px;
+          font-size: 3rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="main-container">
+      <!-- Enhanced Header -->
+      <header class="main-header">
+        <div class="container">
+          <div class="brand-section">
+            <div class="brand-logo">
+              <i class="fas fa-store"></i>
+            </div>
+            <h1 class="brand-name">Simple Shop</h1>
+            <p class="brand-tagline">
+              Premium Products • Exceptional Service • Unbeatable Prices
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <!-- Navigation -->
+      <nav class="navbar navbar-expand-lg main-nav">
+        <div class="container">
+          <a class="navbar-brand nav-brand text-white" href="#">
+            <i class="fas fa-shopping-bag me-2"></i>Simple Shop
+          </a>
+          <div class="navbar-nav ms-auto">
+            <div class="nav-item">
+              <a class="nav-link text-white" href="#">
+                <i class="fas fa-shopping-cart me-1"></i>
+                Cart
+                <span class="cart-badge" id="cart-count">0</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Main Content -->
+      <main class="container py-4">
+        <!-- Loading Spinner -->
+        <div class="loading-spinner" id="loading">
+          <div class="spinner"></div>
+          <p class="mt-2">Loading amazing products...</p>
+        </div>
+
+        <!-- Hero Stats -->
+        <div class="row text-center mb-5">
+          <div class="col-md-3 stat-item">
+            <div class="stat-number" id="products-count">0</div>
+            <div class="stat-label">Premium Products</div>
+          </div>
+          <div class="col-md-3 stat-item">
+            <div class="stat-number" id="offers-count">0</div>
+            <div class="stat-label">Active Offers</div>
+          </div>
+          <div class="col-md-3 stat-item">
+            <div class="stat-number">24/7</div>
+            <div class="stat-label">Customer Support</div>
+          </div>
+          <div class="col-md-3 stat-item">
+            <div class="stat-number">100%</div>
+            <div class="stat-label">Satisfaction</div>
+          </div>
+        </div>
+
+        <!-- Products Section -->
+        <h2 class="section-title">
+          <i class="fas fa-box-open me-2"></i>Featured Products
+        </h2>
+        <div class="row" id="products"></div>
+
+        <!-- Offers Section -->
+        <h2 class="section-title mt-5">
+          <i class="fas fa-tags me-2"></i>Special Offers
+        </h2>
+        <div class="row" id="offers"></div>
+
+        <!-- Additional Info Section -->
+        <div class="stats-section rounded-3 mt-5">
+          <div class="container">
+            <div class="row text-center">
+              <div class="col-md-4 mb-4">
+                <i
+                  class="fas fa-shipping-fast fa-3x mb-3"
+                  style="color: #3498db"
+                ></i>
+                <h4>Free Shipping</h4>
+                <p>On all orders over $50</p>
+              </div>
+              <div class="col-md-4 mb-4">
+                <i
+                  class="fas fa-shield-alt fa-3x mb-3"
+                  style="color: #2ecc71"
+                ></i>
+                <h4>Secure Payment</h4>
+                <p>100% secure payment processing</p>
+              </div>
+              <div class="col-md-4 mb-4">
+                <i class="fas fa-headset fa-3x mb-3" style="color: #e74c3c"></i>
+                <h4>24/7 Support</h4>
+                <p>Dedicated customer support team</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+      <div class="container">
+        <div class="footer-content">
+          <h4>iwaseemdevops</h4>
+          <p class="mb-4">Full Stack DevOps Engineer & E-Commerce Specialist</p>
+
+          <div class="contact-info">
+            <div class="contact-item">
+              <i class="fas fa-envelope"></i>
+              <a href="mailto:iwaseemdevops@gmail.com"
+                >iwaseemdevops@gmail.com</a
+              >
+            </div>
+            <div class="contact-item">
+              <i class="fas fa-phone"></i>
+              <span>+92 322 6196076</span>
+            </div>
+            <div class="contact-item">
+              <i class="fas fa-map-marker-alt"></i>
+              <span>Pakistan</span>
+            </div>
+          </div>
+
+          <div class="social-links">
+            <a
+              href="https://www.linkedin.com/in/iwaseemdevops"
+              class="social-link"
+              target="_blank"
+            >
+              <i class="fab fa-linkedin-in"></i>
+            </a>
+            <a
+              href="https://github.com/iwaseemdevops"
+              class="social-link"
+              target="_blank"
+            >
+              <i class="fab fa-github"></i>
+            </a>
+            <a href="mailto:iwaseemdevops@gmail.com" class="social-link">
+              <i class="fas fa-envelope"></i>
+            </a>
+          </div>
+
+          <div class="copyright">
+            &copy; 2024 Simple Shop. All rights reserved. | Designed with
+            <i class="fas fa-heart" style="color: #e74c3c"></i> by iwaseemdevops
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      let cartCount = 0;
+      let cartItems = [];
+
+      // Enhanced add to cart function
+      function addToCart(product, price) {
+        cartCount++;
+        cartItems.push({ product, price });
+        updateCartUI();
+
+        // Show success notification
+        showNotification(`${product} added to cart!`, "success");
+      }
+
+      function updateCartUI() {
+        document.getElementById("cart-count").innerText = cartCount;
+      }
+
+      function showNotification(message, type = "info") {
+        // Create notification element
+        const notification = document.createElement("div");
+        notification.className = `alert alert-${
+          type === "success" ? "success" : "info"
+        } alert-dismissible fade show`;
+        notification.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          z-index: 9999;
+          min-width: 300px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        `;
+        notification.innerHTML = `
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+        document.body.appendChild(notification);
+
+        // Auto remove after 3 seconds
+        setTimeout(() => {
+          if (notification.parentNode) {
+            notification.remove();
+          }
+        }, 3000);
+      }
+
+      async function loadProducts() {
+        showLoading(true);
+        try {
+          const res = await fetch("/api/products");
+          const products = await res.json();
+          const container = document.getElementById("products");
+
+          container.innerHTML = "";
+          products.forEach((p, index) => {
+            const rating = (4 + Math.random()).toFixed(1); // Random rating for demo
+            container.innerHTML += `
+            <div class="col-lg-4 col-md-6 mb-4">
+              <div class="product-card">
+                <div class="product-image">
+                  <i class="fas fa-${
+                    p.name.toLowerCase() === "laptop" ? "laptop" : "mobile-alt"
+                  }"></i>
+                </div>
+                <div class="card-body p-4">
+                  <h5 class="card-title fw-bold">${p.name}</h5>
+                  <div class="product-rating mb-2">
+                    ${"★".repeat(Math.floor(rating))}${"☆".repeat(
+              5 - Math.floor(rating)
+            )}
+                    <small class="text-muted ms-1">(${rating})</small>
+                  </div>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <span class="product-price">$${p.price}</span>
+                    <button class="btn btn-add-cart" onclick="addToCart('${
+                      p.name
+                    }', ${p.price})">
+                      <i class="fas fa-cart-plus me-2"></i>Add to Cart
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+          });
+
+          // Update products count
+          document.getElementById("products-count").innerText = products.length;
+        } catch (err) {
+          console.error("Error loading products:", err);
+          showNotification(
+            "Error loading products. Please try again.",
+            "error"
+          );
+        } finally {
+          showLoading(false);
+        }
+      }
+
+      async function loadOffers() {
+        try {
+          const res = await fetch("/api/offers");
+          const offers = await res.json();
+          const container = document.getElementById("offers");
+
+          container.innerHTML = "";
+          offers.forEach((o, index) => {
+            container.innerHTML += `
+            <div class="col-lg-3 col-md-6 mb-4">
+              <div class="offer-card p-4 text-center">
+                <div class="offer-badge">LIMITED TIME</div>
+                <div class="discount-amount">${o.discount}% OFF</div>
+                <h5 class="mb-3">${o.code}</h5>
+                <p class="mb-0">Use code at checkout</p>
+              </div>
+            </div>
+          `;
+          });
+
+          // Update offers count
+          document.getElementById("offers-count").innerText = offers.length;
+        } catch (err) {
+          console.error("Error loading offers:", err);
+        }
+      }
+
+      function showLoading(show) {
+        document.getElementById("loading").style.display = show
+          ? "block"
+          : "none";
+      }
+
+      // Initialize the application
+      document.addEventListener("DOMContentLoaded", function () {
+        loadProducts();
+        loadOffers();
+
+        // Add some interactive effects
+        const cards = document.querySelectorAll(".product-card, .offer-card");
+        cards.forEach((card) => {
+          card.addEventListener("mouseenter", function () {
+            this.style.transform = this.classList.contains("product-card")
+              ? "translateY(-5px)"
+              : "translateY(-3px)";
+          });
+          card.addEventListener("mouseleave", function () {
+            this.style.transform = "translateY(0)";
+          });
+        });
+      });
+    </script>
+  </body>
+</html>
