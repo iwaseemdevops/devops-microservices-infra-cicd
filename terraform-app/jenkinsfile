@@ -3,7 +3,7 @@ pipeline {
 
     parameters {
         booleanParam(name: 'DESTROY', defaultValue: false, description: 'Destroy infrastructure')
-        string(name: 'KEY_NAME', defaultValue: '', description: 'SSH key pair name for EC2')
+        string(name: 'KEY_NAME', defaultValue: '', description: 'AWS EC2 key pair name')
     }
 
     environment {
@@ -26,10 +26,16 @@ pipeline {
             steps {
                 sh '''
                 if ! command -v terraform &> /dev/null; then
-                    wget https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip
-                    unzip terraform_${TF_VERSION}_linux_amd64.zip
-                    sudo mv terraform /usr/local/bin/
+                    echo "Installing Terraform ${TF_VERSION}"
+
+                    rm -f terraform terraform_${TF_VERSION}_linux_amd64.zip
+
+                    wget -q https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip
+                    unzip -o terraform_${TF_VERSION}_linux_amd64.zip
+
+                    sudo mv -f terraform /usr/local/bin/
                 fi
+
                 terraform version
                 '''
             }
@@ -39,7 +45,9 @@ pipeline {
             when { expression { !params.DESTROY } }
             steps {
                 dir("${TF_DIR}") {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                    withCredentials([
+                        [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']
+                    ]) {
                         sh 'terraform init'
                     }
                 }
@@ -50,7 +58,9 @@ pipeline {
             when { expression { !params.DESTROY } }
             steps {
                 dir("${TF_DIR}") {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                    withCredentials([
+                        [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']
+                    ]) {
                         sh "terraform plan -out=tfplan -var='key_name=${params.KEY_NAME}'"
                     }
                 }
@@ -61,7 +71,9 @@ pipeline {
             when { expression { !params.DESTROY } }
             steps {
                 dir("${TF_DIR}") {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                    withCredentials([
+                        [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']
+                    ]) {
                         sh "terraform apply -auto-approve tfplan"
                     }
                 }
@@ -77,44 +89,54 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
+                    if (!env.EC2_IP) {
+                        error "EC2 Public IP not found"
+                    }
+
                     echo "EC2 IP: ${env.EC2_IP}"
                 }
             }
         }
 
         stage('Wait For EC2 SSH') {
+            when { expression { !params.DESTROY } }
             steps {
-                sh """
+                sh '''
                 echo "Waiting for EC2 SSH..."
-                for i in {1..30}; do
-                    nc -z ${EC2_IP} 22 && echo "SSH ready" && exit 0
+
+                for i in {1..30}
+                do
+                    nc -z ${EC2_IP} 22 && echo "SSH Ready" && exit 0
                     sleep 10
                 done
+
                 echo "EC2 SSH not ready"
                 exit 1
-                """
+                '''
             }
         }
 
         stage('Copy Docker Compose') {
+            when { expression { !params.DESTROY } }
             steps {
-                sh """
+                sh '''
                 scp -o StrictHostKeyChecking=no \
                 ${APP_DIR}/docker-compose.yaml \
                 ${USER}@${EC2_IP}:/home/${USER}/
-                """
+                '''
             }
         }
 
         stage('Deploy Application') {
+            when { expression { !params.DESTROY } }
             steps {
-                sh """
+                sh '''
                 ssh -o StrictHostKeyChecking=no ${USER}@${EC2_IP} << EOF
                 sudo docker compose down || true
                 sudo docker compose pull
                 sudo docker compose up -d
                 EOF
-                """
+                '''
             }
         }
 
@@ -122,21 +144,31 @@ pipeline {
             when { expression { params.DESTROY } }
             steps {
                 dir("${TF_DIR}") {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                    withCredentials([
+                        [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']
+                    ]) {
                         sh "terraform destroy -auto-approve -var='key_name=${params.KEY_NAME}'"
                     }
                 }
             }
         }
+
     }
 
     post {
+
         success {
-            echo "Application deployed at: http://${env.EC2_IP}:3000"
+            echo "Application deployed successfully"
+            echo "Access your app at: http://${env.EC2_IP}:3000"
         }
 
         failure {
-            echo "Pipeline failed"
+            echo "Pipeline failed. Check logs."
         }
+
+        always {
+            echo "Pipeline finished"
+        }
+
     }
 }
