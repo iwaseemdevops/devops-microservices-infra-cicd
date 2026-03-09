@@ -57,3 +57,6 @@ wget https://releases.hashicorp.com/terraform/1.9.7/terraform_1.9.7_linux_amd64.
 unzip terraform_1.9.7_linux_amd64.zip
 sudo mv terraform /usr/local/bin/
 terraform version
+
+# install netcat for health checks
+sudo yum install -y nc

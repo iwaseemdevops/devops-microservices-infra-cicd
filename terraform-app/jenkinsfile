@@ -11,6 +11,8 @@ pipeline {
         TF_DIR = 'terraform-app/envs/dev'
         APP_DIR = 'microservices-shop'
         USER = 'ubuntu'
+        SSH_WAIT_TIMEOUT = 300 // seconds
+        SSH_WAIT_INTERVAL = 10 // seconds
     }
 
     stages {
@@ -24,14 +26,10 @@ pipeline {
 
         stage('Terraform Init') {
             when { expression { !params.DESTROY } }
-
             steps {
                 dir("${TF_DIR}") {
-                    withCredentials([
-                        [$class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: 'aws-creds']
-                    ]) {
-                        sh 'terraform init'
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                        sh 'terraform init -reconfigure'
                     }
                 }
             }
@@ -39,18 +37,10 @@ pipeline {
 
         stage('Terraform Plan') {
             when { expression { !params.DESTROY } }
-
             steps {
                 dir("${TF_DIR}") {
-                    withCredentials([
-                        [$class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: 'aws-creds']
-                    ]) {
-                        sh """
-                        terraform plan \
-                        -out=tfplan \
-                        -var="key_name=${params.KEY_NAME}"
-                        """
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                        sh "terraform plan -out=tfplan -var='key_name=${params.KEY_NAME}'"
                     }
                 }
             }
@@ -58,13 +48,9 @@ pipeline {
 
         stage('Terraform Apply') {
             when { expression { !params.DESTROY } }
-
             steps {
                 dir("${TF_DIR}") {
-                    withCredentials([
-                        [$class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: 'aws-creds']
-                    ]) {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
                         sh "terraform apply -auto-approve tfplan"
                     }
                 }
@@ -73,18 +59,10 @@ pipeline {
 
         stage('Fetch EC2 IP') {
             when { expression { !params.DESTROY } }
-
             steps {
                 script {
-                    env.EC2_IP = sh(
-                        script: "cd ${TF_DIR} && terraform output -raw app_server_public_ip",
-                        returnStdout: true
-                    ).trim()
-
-                    if (!env.EC2_IP) {
-                        error "EC2 IP not found in Terraform output"
-                    }
-
+                    env.EC2_IP = sh(script: "cd ${TF_DIR} && terraform output -raw app_server_public_ip", returnStdout: true).trim()
+                    if (!env.EC2_IP) { error "EC2 IP not found in Terraform output" }
                     echo "EC2 IP: ${env.EC2_IP}"
                 }
             }
@@ -92,25 +70,28 @@ pipeline {
 
         stage('Wait for EC2 SSH') {
             when { expression { !params.DESTROY } }
-
             steps {
-                sh """
-                echo "Waiting for EC2 SSH..."
-
-                for i in {1..30}; do
-                    nc -z ${EC2_IP} 22 && echo "SSH Ready" && exit 0
-                    sleep 10
-                done
-
-                echo "EC2 SSH not reachable"
-                exit 1
-                """
+                script {
+                    echo "Waiting for SSH on ${env.EC2_IP}..."
+                    timeout(time: env.SSH_WAIT_TIMEOUT.toInteger(), unit: 'SECONDS') {
+                        waitUntil {
+                            def status = sh(script: "nc -zv ${env.EC2_IP} 22", returnStatus: true)
+                            if (status == 0) { 
+                                echo "✅ SSH is available on ${env.EC2_IP}"; 
+                                return true 
+                            } else { 
+                                echo "SSH not ready yet, retrying in ${env.SSH_WAIT_INTERVAL} seconds..."; 
+                                sleep env.SSH_WAIT_INTERVAL.toInteger()
+                                return false 
+                            }
+                        }
+                    }
+                }
             }
         }
 
         stage('Copy docker-compose') {
             when { expression { !params.DESTROY } }
-
             steps {
                 sh """
                 scp -o StrictHostKeyChecking=no \
@@ -122,7 +103,6 @@ pipeline {
 
         stage('Deploy Containers') {
             when { expression { !params.DESTROY } }
-
             steps {
                 sh """
                 ssh -o StrictHostKeyChecking=no ${USER}@${EC2_IP} << EOF
@@ -136,17 +116,10 @@ pipeline {
 
         stage('Terraform Destroy') {
             when { expression { params.DESTROY } }
-
             steps {
                 dir("${TF_DIR}") {
-                    withCredentials([
-                        [$class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: 'aws-creds']
-                    ]) {
-                        sh """
-                        terraform destroy -auto-approve \
-                        -var="key_name=${params.KEY_NAME}"
-                        """
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                        sh "terraform destroy -auto-approve -var='key_name=${params.KEY_NAME}'"
                     }
                 }
             }
@@ -154,18 +127,21 @@ pipeline {
     }
 
     post {
+        always {
+            echo "Pipeline finished. Ensuring all Terraform resources are destroyed..."
+            dir("${TF_DIR}") {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                    sh "terraform destroy -auto-approve -var='key_name=${params.KEY_NAME}' || echo 'Resources already destroyed or failed'"
+                }
+            }
+        }
 
         success {
-            echo "Deployment successful"
-            echo "Application URL: http://${env.EC2_IP}:3000"
+            echo "Deployment successful. App URL: http://${env.EC2_IP}:3000"
         }
 
         failure {
-            echo "Pipeline failed. Check logs."
-        }
-
-        always {
-            echo "Pipeline finished."
+            echo "Pipeline failed. Automatic cleanup attempted."
         }
     }
 }
