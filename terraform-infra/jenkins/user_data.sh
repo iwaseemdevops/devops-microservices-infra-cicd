@@ -48,3 +48,12 @@ echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
 # Display Jenkins initial password
 echo "Jenkins Initial Password:"
 sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+
+# Install Terraform
+sudo apt update
+sudo apt install unzip -y
+
+wget https://releases.hashicorp.com/terraform/1.9.7/terraform_1.9.7_linux_amd64.zip
+unzip terraform_1.9.7_linux_amd64.zip
+sudo mv terraform /usr/local/bin/
+terraform version
