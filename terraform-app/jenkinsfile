@@ -13,6 +13,7 @@ pipeline {
         USER = 'ec2-user'
         SSH_WAIT_TIMEOUT = 300 // seconds
         SSH_WAIT_INTERVAL = 10 // seconds
+        KEY_PATH = '/home/ec2-user/.ssh/id_rsa' // Path to your private key on Jenkins server
     }
 
     stages {
@@ -94,10 +95,10 @@ pipeline {
             when { expression { !params.DESTROY } }
             steps {
                 sh """
-                scp -o StrictHostKeyChecking=no \
-                ${APP_DIR}/docker-compose.yaml \
-                ${USER}@${EC2_IP}:/home/${USER}/
-                """
+                    scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
+                    ${APP_DIR}/docker-compose.yaml \
+                    ${USER}@${EC2_IP}:/home/${USER}/
+                    """
             }
         }
 
@@ -105,7 +106,7 @@ pipeline {
             when { expression { !params.DESTROY } }
             steps {
                 sh """
-                ssh -o StrictHostKeyChecking=no ${USER}@${EC2_IP} << EOF
+                ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@${EC2_IP} << EOF
                 docker compose down || true
                 docker compose pull
                 docker compose up -d
