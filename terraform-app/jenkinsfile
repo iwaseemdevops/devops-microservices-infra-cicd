@@ -10,7 +10,7 @@ pipeline {
         AWS_DEFAULT_REGION = 'ap-south-1'
         TF_DIR = 'terraform-app/envs/dev'
         APP_DIR = 'microservices-shop'
-        USER = 'ubuntu'
+        USER = 'ec2-user'
         SSH_WAIT_TIMEOUT = 300 // seconds
         SSH_WAIT_INTERVAL = 10 // seconds
     }
