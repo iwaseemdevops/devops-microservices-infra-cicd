@@ -139,10 +139,10 @@ EOF
                 sh """
                 ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@${EC2_IP} << 'EOF'
                     cd /home/ec2-user
-                    # Use sudo because docker group changes need a new session
-                    sudo docker-compose down || true
-                    sudo docker-compose pull
-                    sudo docker-compose up -d
+                    # Use full path to docker-compose to avoid PATH issues with sudo
+                    sudo /usr/local/bin/docker-compose down || true
+                    sudo /usr/local/bin/docker-compose pull
+                    sudo /usr/local/bin/docker-compose up -d
 EOF
                 """
             }
