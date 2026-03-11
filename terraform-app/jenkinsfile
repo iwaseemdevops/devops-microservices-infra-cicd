@@ -85,10 +85,10 @@ pipeline {
                         waitUntil {
                             def status = sh(script: "nc -zv ${env.EC2_IP} 22", returnStatus: true)
                             if (status == 0) { 
-                                echo "✅ SSH is available on ${env.EC2_IP}"; 
+                                echo "✅ SSH is available on ${env.EC2_IP}"
                                 return true 
                             } else { 
-                                echo "SSH not ready yet, retrying in ${env.SSH_WAIT_INTERVAL} seconds..."; 
+                                echo "SSH not ready yet, retrying in ${env.SSH_WAIT_INTERVAL} seconds..."
                                 sleep env.SSH_WAIT_INTERVAL.toInteger()
                                 return false 
                             }
@@ -110,15 +110,40 @@ pipeline {
             }
         }
 
+        stage('Install Docker on EC2') {
+            when { expression { !params.DESTROY } }
+            steps {
+                sh """
+                ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@${EC2_IP} << 'EOF'
+                    # Install Docker from Amazon Linux Extras
+                    sudo amazon-linux-extras install docker -y
+                    sudo systemctl start docker
+                    sudo systemctl enable docker
+                    sudo usermod -aG docker ec2-user
+
+                    # Install docker-compose standalone (v1)
+                    sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-\$(uname -s)-\$(uname -m)" -o /usr/local/bin/docker-compose
+                    sudo chmod +x /usr/local/bin/docker-compose
+
+                    # Verify installations
+                    docker --version
+                    docker-compose --version
+EOF
+                """
+            }
+        }
+
         stage('Deploy Containers') {
             when { expression { !params.DESTROY } }
             steps {
                 sh """
-                ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@${EC2_IP} << EOF
-                docker compose down || true
-                docker compose pull
-                docker compose up -d
-                EOF
+                ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@${EC2_IP} << 'EOF'
+                    cd /home/ec2-user
+                    # Use sudo because docker group changes need a new session
+                    sudo docker-compose down || true
+                    sudo docker-compose pull
+                    sudo docker-compose up -d
+EOF
                 """
             }
         }
@@ -144,11 +169,9 @@ pipeline {
                 }
             }
         }
-
         success {
             echo "Deployment successful. App URL: http://${env.EC2_IP}:3000"
         }
-
         failure {
             echo "Pipeline failed. Automatic cleanup attempted."
         }
