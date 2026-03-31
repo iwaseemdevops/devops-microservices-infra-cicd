@@ -106,7 +106,6 @@ pipeline {
         stage('Copy Application Files') {
             when { expression { !params.DESTROY } }
             steps {
-                // Copy entire microservices-shop folder recursively
                 sh """
                     scp -r -o StrictHostKeyChecking=no \
                         -i ${KEY_PATH} \
@@ -121,7 +120,7 @@ pipeline {
             steps {
                 sh """
                     ssh -o StrictHostKeyChecking=no \
-                        -i ${KEY_PATH} ${EC2_USER}@${env.EC2_IP} << EOF
+                        -i ${KEY_PATH} ${EC2_USER}@${env.EC2_IP} << 'EOF'
                         sudo amazon-linux-extras install docker -y
                         sudo systemctl start docker
                         sudo systemctl enable docker
@@ -141,11 +140,15 @@ EOF
             steps {
                 sh """
                     ssh -o StrictHostKeyChecking=no \
-                        -i ${KEY_PATH} ${EC2_USER}@${env.EC2_IP} << EOF
+                        -i ${KEY_PATH} ${EC2_USER}@${env.EC2_IP} << 'EOF'
                         cd /home/ec2-user/microservices-shop
-                        sudo /usr/local/bin/docker-compose down || true
+                        # Remove any existing containers to avoid name conflicts
+                        sudo /usr/local/bin/docker-compose down --remove-orphans || true
+                        sudo docker rm -f mongo || true
+                        # Pull latest images
                         sudo /usr/local/bin/docker-compose pull
-                        sudo /usr/local/bin/docker-compose up -d
+                        # Start containers, force recreation
+                        sudo /usr/local/bin/docker-compose up -d --force-recreate
 EOF
                 """
             }
