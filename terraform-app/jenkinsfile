@@ -10,7 +10,7 @@ pipeline {
         AWS_DEFAULT_REGION = 'ap-south-1'
         TF_DIR             = 'terraform-app/envs/dev'
         APP_DIR            = 'microservices-shop'
-        EC2_USER           = 'ec2-user'           // ✅ Renamed from USER
+        EC2_USER           = 'ec2-user'
         KEY_PATH           = "${TF_DIR}/app-key.pem"
     }
 
@@ -24,7 +24,7 @@ pipeline {
         }
 
         stage('Terraform Init') {
-            steps {  // ✅ Runs for both deploy AND destroy
+            steps {
                 dir("${TF_DIR}") {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
                                       credentialsId: 'aws-creds']]) {
@@ -84,14 +84,14 @@ pipeline {
             steps {
                 script {
                     echo "Waiting for SSH on ${env.EC2_IP}..."
-                    timeout(time: 5, unit: 'MINUTES') {  // ✅ Fixed unit
+                    timeout(time: 5, unit: 'MINUTES') {
                         waitUntil {
                             def status = sh(
-                                script: "nc -zv ${env.EC2_IP} 22 2>&1",
+                                script: "nc -zv -w 5 ${env.EC2_IP} 22 2>&1",
                                 returnStatus: true
                             )
                             if (status == 0) {
-                                echo "✅ SSH is available"
+                                echo "✅ SSH is available on ${env.EC2_IP}"
                                 return true
                             }
                             echo "SSH not ready, retrying in 10s..."
@@ -103,7 +103,7 @@ pipeline {
             }
         }
 
-        stage('Copy docker-compose') {
+        stage('Copy Files to EC2') {
             when { expression { !params.DESTROY } }
             steps {
                 sh """
@@ -113,7 +113,7 @@ pipeline {
                         ${APP_DIR}/docker-compose.yaml \
                         ${EC2_USER}@${env.EC2_IP}:/home/${EC2_USER}/
 
-                    # Create nginx dir on EC2
+                    # Create nginx directory on EC2
                     ssh -o StrictHostKeyChecking=no \
                         -i ${KEY_PATH} ${EC2_USER}@${env.EC2_IP} \
                         'mkdir -p /home/ec2-user/nginx'
@@ -123,14 +123,13 @@ pipeline {
                         -i ${KEY_PATH} \
                         ${APP_DIR}/nginx/nginx.conf \
                         ${EC2_USER}@${env.EC2_IP}:/home/${EC2_USER}/nginx/nginx.conf
-                """  // ✅ env.EC2_IP and EC2_USER used correctly
+                """
             }
         }
 
         stage('Install Docker on EC2') {
             when { expression { !params.DESTROY } }
             steps {
-                // ✅ Unquoted EOF so Groovy vars expand properly
                 sh """
                     ssh -o StrictHostKeyChecking=no \
                         -i ${KEY_PATH} ${EC2_USER}@${env.EC2_IP} << EOF
@@ -177,11 +176,10 @@ EOF
     }
 
     post {
-        // ✅ Removed 'always' destroy block — it was killing deployments
         success {
             script {
                 if (!params.DESTROY) {
-                    echo "✅ Deployment successful! App URL: http://${env.EC2_IP}:3000"
+                    echo "✅ Deployment successful! App URL: http://${env.EC2_IP}:80"
                 } else {
                     echo "✅ Infrastructure destroyed successfully."
                 }
