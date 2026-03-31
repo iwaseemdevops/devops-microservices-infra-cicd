@@ -107,16 +107,16 @@ pipeline {
             when { expression { !params.DESTROY } }
             steps {
                 sh """
+                    # ✅ Always clean nginx dir to avoid stale directory/file conflicts
+                    ssh -o StrictHostKeyChecking=no \
+                        -i ${KEY_PATH} ${EC2_USER}@${env.EC2_IP} \
+                        'rm -rf /home/ec2-user/nginx && mkdir -p /home/ec2-user/nginx'
+
                     # Copy docker-compose.yaml
                     scp -o StrictHostKeyChecking=no \
                         -i ${KEY_PATH} \
                         ${APP_DIR}/docker-compose.yaml \
                         ${EC2_USER}@${env.EC2_IP}:/home/${EC2_USER}/
-
-                    # Create nginx directory on EC2
-                    ssh -o StrictHostKeyChecking=no \
-                        -i ${KEY_PATH} ${EC2_USER}@${env.EC2_IP} \
-                        'mkdir -p /home/ec2-user/nginx'
 
                     # Copy nginx.conf
                     scp -o StrictHostKeyChecking=no \
