@@ -1,62 +1,59 @@
 #!/bin/bash
+set -e  # Stop on any error
 
-# Update system
-sudo yum update -y
-
-# Install Java (Required for Jenkins)
-sudo yum install -y java-17-amazon-corretto
-
-# Install Docker
-sudo amazon-linux-extras install docker -y
-
-sudo systemctl start docker
-sudo systemctl enable docker
-
-# Allow ec2-user to run Docker
-sudo usermod -aG docker ec2-user
-
-# Add Jenkins Repository
-sudo wget -O /etc/yum.repos.d/jenkins.repo \
-https://pkg.jenkins.io/redhat-stable/jenkins.repo
-
-# Import Jenkins Key
-sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
-
-# Install Jenkins
-sudo yum install -y jenkins
-
-# Add Jenkins to Docker group
-sudo usermod -aG docker jenkins
-
-# Start Jenkins
-sudo systemctl start jenkins
-sudo systemctl enable jenkins
-
-# Restart Docker & Jenkins
-sudo systemctl restart docker
-sudo systemctl restart jenkins
-
-# Create 2GB Swap (important for t2/t3 instances)
+# ── 1. Swap first (before heavy installs) ─────────────────────────
 sudo fallocate -l 2G /swapfile
 sudo chmod 600 /swapfile
 sudo mkswap /swapfile
 sudo swapon /swapfile
-
-# Make swap permanent
 echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
 
-# Display Jenkins initial password
-echo "Jenkins Initial Password:"
-sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+# ── 2. Update system ──────────────────────────────────────────────
+sudo yum update -y
 
-# Install Terraform
-sudo apt update
-sudo apt install unzip -y
+# ── 3. Install Java ───────────────────────────────────────────────
+sudo yum install -y java-17-amazon-corretto
 
+# ── 4. Install Docker ─────────────────────────────────────────────
+# For Amazon Linux 2:
+sudo amazon-linux-extras install docker -y
+# For Amazon Linux 2023, replace above line with:
+# sudo dnf install -y docker
+
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker ec2-user
+
+# ── 5. Install Jenkins ────────────────────────────────────────────
+sudo wget -O /etc/yum.repos.d/jenkins.repo \
+    https://pkg.jenkins.io/redhat-stable/jenkins.repo
+
+sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+
+sudo yum install -y jenkins
+sudo usermod -aG docker jenkins
+
+sudo systemctl start jenkins
+sudo systemctl enable jenkins
+
+# ── 6. Install utilities (yum only — no apt!) ─────────────────────
+sudo yum install -y unzip nc
+
+# ── 7. Install Terraform ──────────────────────────────────────────
 wget https://releases.hashicorp.com/terraform/1.9.7/terraform_1.9.7_linux_amd64.zip
 unzip terraform_1.9.7_linux_amd64.zip
 sudo mv terraform /usr/local/bin/
+rm terraform_1.9.7_linux_amd64.zip  # cleanup
 terraform version
 
-# install netcat for health checks
-sudo yum install -y nc
+# ── 8. Restart services with a pause ─────────────────────────────
+sudo systemctl restart docker
+sleep 5
+sudo systemctl restart jenkins
+sleep 10
+
+# ── 9. Show Jenkins password ──────────────────────────────────────
+echo "==============================="
+echo " Jenkins Initial Password:"
+echo "==============================="
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword

@@ -8,12 +8,10 @@ pipeline {
 
     environment {
         AWS_DEFAULT_REGION = 'ap-south-1'
-        TF_DIR = 'terraform-app/envs/dev'
-        APP_DIR = 'microservices-shop'
-        USER = 'ec2-user'
-        SSH_WAIT_TIMEOUT = 300 // seconds
-        SSH_WAIT_INTERVAL = 10 // seconds
-        KEY_PATH = "${TF_DIR}/app-key.pem" // Path to your private key on Jenkins server
+        TF_DIR             = 'terraform-app/envs/dev'
+        APP_DIR            = 'microservices-shop'
+        EC2_USER           = 'ec2-user'           // ✅ Renamed from USER
+        KEY_PATH           = "${TF_DIR}/app-key.pem"
     }
 
     stages {
@@ -21,15 +19,15 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                url: 'https://github.com/iwaseemdevops/devops-microservices-infra-cicd.git'
+                    url: 'https://github.com/iwaseemdevops/devops-microservices-infra-cicd.git'
             }
         }
 
         stage('Terraform Init') {
-            when { expression { !params.DESTROY } }
-            steps {
+            steps {  // ✅ Runs for both deploy AND destroy
                 dir("${TF_DIR}") {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
+                                      credentialsId: 'aws-creds']]) {
                         sh 'terraform init -reconfigure'
                     }
                 }
@@ -40,7 +38,8 @@ pipeline {
             when { expression { !params.DESTROY } }
             steps {
                 dir("${TF_DIR}") {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
+                                      credentialsId: 'aws-creds']]) {
                         sh "terraform plan -out=tfplan -var='key_name=${params.KEY_NAME}'"
                     }
                 }
@@ -51,17 +50,18 @@ pipeline {
             when { expression { !params.DESTROY } }
             steps {
                 dir("${TF_DIR}") {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
+                                      credentialsId: 'aws-creds']]) {
                         sh "terraform apply -auto-approve tfplan"
                     }
                 }
             }
         }
 
-        stage('Fix SSH key permissions') {
+        stage('Fix SSH Key Permissions') {
             when { expression { !params.DESTROY } }
             steps {
-                sh "chmod 400 ${TF_DIR}/app-key.pem"
+                sh "chmod 400 ${KEY_PATH}"
             }
         }
 
@@ -69,7 +69,10 @@ pipeline {
             when { expression { !params.DESTROY } }
             steps {
                 script {
-                    env.EC2_IP = sh(script: "cd ${TF_DIR} && terraform output -raw app_server_public_ip", returnStdout: true).trim()
+                    env.EC2_IP = sh(
+                        script: "cd ${TF_DIR} && terraform output -raw app_server_public_ip",
+                        returnStdout: true
+                    ).trim()
                     if (!env.EC2_IP) { error "EC2 IP not found in Terraform output" }
                     echo "EC2 IP: ${env.EC2_IP}"
                 }
@@ -81,17 +84,19 @@ pipeline {
             steps {
                 script {
                     echo "Waiting for SSH on ${env.EC2_IP}..."
-                    timeout(time: env.SSH_WAIT_TIMEOUT.toInteger(), unit: 'SECONDS') {
+                    timeout(time: 5, unit: 'MINUTES') {  // ✅ Fixed unit
                         waitUntil {
-                            def status = sh(script: "nc -zv ${env.EC2_IP} 22", returnStatus: true)
-                            if (status == 0) { 
-                                echo "✅ SSH is available on ${env.EC2_IP}"
-                                return true 
-                            } else { 
-                                echo "SSH not ready yet, retrying in ${env.SSH_WAIT_INTERVAL} seconds..."
-                                sleep env.SSH_WAIT_INTERVAL.toInteger()
-                                return false 
+                            def status = sh(
+                                script: "nc -zv ${env.EC2_IP} 22 2>&1",
+                                returnStatus: true
+                            )
+                            if (status == 0) {
+                                echo "✅ SSH is available"
+                                return true
                             }
+                            echo "SSH not ready, retrying in 10s..."
+                            sleep 10
+                            return false
                         }
                     }
                 }
@@ -102,32 +107,30 @@ pipeline {
             when { expression { !params.DESTROY } }
             steps {
                 sh """
-                scp -o StrictHostKeyChecking=no \
-                -i ${KEY_PATH} \
-                ${APP_DIR}/docker-compose.yaml \
-                ${USER}@${EC2_IP}:/home/${USER}/
-                """
+                    scp -o StrictHostKeyChecking=no \
+                        -i ${KEY_PATH} \
+                        ${APP_DIR}/docker-compose.yaml \
+                        ${EC2_USER}@${env.EC2_IP}:/home/${EC2_USER}/
+                """  // ✅ env.EC2_IP and EC2_USER used correctly
             }
         }
 
         stage('Install Docker on EC2') {
             when { expression { !params.DESTROY } }
             steps {
+                // ✅ Unquoted EOF so Groovy vars expand properly
                 sh """
-                ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@${EC2_IP} << 'EOF'
-                    # Install Docker from Amazon Linux Extras
-                    sudo amazon-linux-extras install docker -y
-                    sudo systemctl start docker
-                    sudo systemctl enable docker
-                    sudo usermod -aG docker ec2-user
-
-                    # Install docker-compose standalone (v1)
-                    sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-\$(uname -s)-\$(uname -m)" -o /usr/local/bin/docker-compose
-                    sudo chmod +x /usr/local/bin/docker-compose
-
-                    # Verify installations
-                    docker --version
-                    docker-compose --version
+                    ssh -o StrictHostKeyChecking=no \
+                        -i ${KEY_PATH} ${EC2_USER}@${env.EC2_IP} << EOF
+                        sudo amazon-linux-extras install docker -y
+                        sudo systemctl start docker
+                        sudo systemctl enable docker
+                        sudo usermod -aG docker ec2-user
+                        sudo curl -fsSL "https://github.com/docker/compose/releases/latest/download/docker-compose-\$(uname -s)-\$(uname -m)" \
+                            -o /usr/local/bin/docker-compose
+                        sudo chmod +x /usr/local/bin/docker-compose
+                        docker --version
+                        docker-compose --version
 EOF
                 """
             }
@@ -137,12 +140,12 @@ EOF
             when { expression { !params.DESTROY } }
             steps {
                 sh """
-                ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@${EC2_IP} << 'EOF'
-                    cd /home/ec2-user
-                    # Use full path to docker-compose to avoid PATH issues with sudo
-                    sudo /usr/local/bin/docker-compose down || true
-                    sudo /usr/local/bin/docker-compose pull
-                    sudo /usr/local/bin/docker-compose up -d
+                    ssh -o StrictHostKeyChecking=no \
+                        -i ${KEY_PATH} ${EC2_USER}@${env.EC2_IP} << EOF
+                        cd /home/ec2-user
+                        sudo /usr/local/bin/docker-compose down || true
+                        sudo /usr/local/bin/docker-compose pull
+                        sudo /usr/local/bin/docker-compose up -d
 EOF
                 """
             }
@@ -152,7 +155,8 @@ EOF
             when { expression { params.DESTROY } }
             steps {
                 dir("${TF_DIR}") {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
+                                      credentialsId: 'aws-creds']]) {
                         sh "terraform destroy -auto-approve -var='key_name=${params.KEY_NAME}'"
                     }
                 }
@@ -161,19 +165,18 @@ EOF
     }
 
     post {
-        always {
-            echo "Pipeline finished. Ensuring all Terraform resources are destroyed..."
-            dir("${TF_DIR}") {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
-                    sh "terraform destroy -auto-approve -var='key_name=${params.KEY_NAME}' || echo 'Resources already destroyed or failed'"
+        // ✅ Removed 'always' destroy block — it was killing deployments
+        success {
+            script {
+                if (!params.DESTROY) {
+                    echo "✅ Deployment successful! App URL: http://${env.EC2_IP}:3000"
+                } else {
+                    echo "✅ Infrastructure destroyed successfully."
                 }
             }
         }
-        success {
-            echo "Deployment successful. App URL: http://${env.EC2_IP}:3000"
-        }
         failure {
-            echo "Pipeline failed. Automatic cleanup attempted."
+            echo "❌ Pipeline failed. Check logs above for details."
         }
     }
 }

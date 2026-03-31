@@ -17,8 +17,8 @@ services:
   product-service:
     image: iwaseemdevops/product-service:latest
     container_name: product-service
-    ports:
-      - "8081:8081"
+    expose:
+      - "8081"
     depends_on:
       mongo:
         condition: service_healthy
@@ -26,8 +26,8 @@ services:
   offer-service:
     image: iwaseemdevops/offer-service:latest
     container_name: offer-service
-    ports:
-      - "8082:8082"
+    expose:
+      - "8082"
     depends_on:
       mongo:
         condition: service_healthy
@@ -35,12 +35,24 @@ services:
   frontend-service:
     image: iwaseemdevops/frontend-service:latest
     container_name: frontend-service
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     environment:
       PRODUCT_API: "http://product-service:8081/products"
       OFFER_API: "http://offer-service:8082/offers"
     depends_on:
+      - product-service
+      - offer-service
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend-service
       - product-service
       - offer-service
 
