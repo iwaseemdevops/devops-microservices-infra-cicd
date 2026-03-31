@@ -107,10 +107,22 @@ pipeline {
             when { expression { !params.DESTROY } }
             steps {
                 sh """
+                    # Copy docker-compose.yaml
                     scp -o StrictHostKeyChecking=no \
                         -i ${KEY_PATH} \
                         ${APP_DIR}/docker-compose.yaml \
                         ${EC2_USER}@${env.EC2_IP}:/home/${EC2_USER}/
+
+                    # Create nginx dir on EC2
+                    ssh -o StrictHostKeyChecking=no \
+                        -i ${KEY_PATH} ${EC2_USER}@${env.EC2_IP} \
+                        'mkdir -p /home/ec2-user/nginx'
+
+                    # Copy nginx.conf
+                    scp -o StrictHostKeyChecking=no \
+                        -i ${KEY_PATH} \
+                        ${APP_DIR}/nginx/nginx.conf \
+                        ${EC2_USER}@${env.EC2_IP}:/home/${EC2_USER}/nginx/nginx.conf
                 """  // ✅ env.EC2_IP and EC2_USER used correctly
             }
         }
