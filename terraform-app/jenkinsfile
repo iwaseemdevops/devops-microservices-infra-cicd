@@ -87,11 +87,11 @@ pipeline {
                     timeout(time: 5, unit: 'MINUTES') {
                         waitUntil {
                             def status = sh(
-                                script: "nc -zv -w 5 ${env.EC2_IP} 22 2>&1",
+                                script: "nc -zv ${env.EC2_IP} 22 2>&1",
                                 returnStatus: true
                             )
                             if (status == 0) {
-                                echo "✅ SSH is available on ${env.EC2_IP}"
+                                echo "✅ SSH is available"
                                 return true
                             }
                             echo "SSH not ready, retrying in 10s..."
@@ -103,26 +103,15 @@ pipeline {
             }
         }
 
-        stage('Copy Files to EC2') {
+        stage('Copy Application Files') {
             when { expression { !params.DESTROY } }
             steps {
+                // Copy entire microservices-shop folder recursively
                 sh """
-                    # ✅ Always clean nginx dir to avoid stale directory/file conflicts
-                    ssh -o StrictHostKeyChecking=no \
-                        -i ${KEY_PATH} ${EC2_USER}@${env.EC2_IP} \
-                        'rm -rf /home/ec2-user/nginx && mkdir -p /home/ec2-user/nginx'
-
-                    # Copy docker-compose.yaml
-                    scp -o StrictHostKeyChecking=no \
+                    scp -r -o StrictHostKeyChecking=no \
                         -i ${KEY_PATH} \
-                        ${APP_DIR}/docker-compose.yaml \
+                        ${APP_DIR} \
                         ${EC2_USER}@${env.EC2_IP}:/home/${EC2_USER}/
-
-                    # Copy nginx.conf
-                    scp -o StrictHostKeyChecking=no \
-                        -i ${KEY_PATH} \
-                        ${APP_DIR}/nginx/nginx.conf \
-                        ${EC2_USER}@${env.EC2_IP}:/home/${EC2_USER}/nginx/nginx.conf
                 """
             }
         }
@@ -153,7 +142,7 @@ EOF
                 sh """
                     ssh -o StrictHostKeyChecking=no \
                         -i ${KEY_PATH} ${EC2_USER}@${env.EC2_IP} << EOF
-                        cd /home/ec2-user
+                        cd /home/ec2-user/microservices-shop
                         sudo /usr/local/bin/docker-compose down || true
                         sudo /usr/local/bin/docker-compose pull
                         sudo /usr/local/bin/docker-compose up -d
@@ -179,7 +168,7 @@ EOF
         success {
             script {
                 if (!params.DESTROY) {
-                    echo "✅ Deployment successful! App URL: http://${env.EC2_IP}:80"
+                    echo "✅ Deployment successful! App URL: http://${env.EC2_IP}:3000"
                 } else {
                     echo "✅ Infrastructure destroyed successfully."
                 }
