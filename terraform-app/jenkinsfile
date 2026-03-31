@@ -138,19 +138,20 @@ EOF
         stage('Deploy Containers') {
             when { expression { !params.DESTROY } }
             steps {
-                sh """
-                    ssh -o StrictHostKeyChecking=no \
-                        -i ${KEY_PATH} ${EC2_USER}@${env.EC2_IP} << 'EOF'
-                        cd /home/ec2-user/microservices-shop
-                        # Remove any existing containers to avoid name conflicts
-                        sudo /usr/local/bin/docker-compose down --remove-orphans || true
-                        sudo docker rm -f mongo || true
-                        # Pull latest images
-                        sudo /usr/local/bin/docker-compose pull
-                        # Start containers, force recreation
-                        sudo /usr/local/bin/docker-compose up -d --force-recreate
+                 sh """
+            ssh -o StrictHostKeyChecking=no \
+                -i ${KEY_PATH} ${EC2_USER}@${env.EC2_IP} << 'EOF'
+                cd /home/ec2-user/microservices-shop
+                # Forcefully remove all containers that might conflict
+                sudo docker rm -f mongo offer-service product-service frontend-service nginx db-service || true
+                # Stop and remove any remaining containers from compose
+                sudo /usr/local/bin/docker-compose down --remove-orphans || true
+                # Pull latest images
+                sudo /usr/local/bin/docker-compose pull
+                # Start containers (force recreate to be safe)
+                sudo /usr/local/bin/docker-compose up -d --force-recreate
 EOF
-                """
+        """
             }
         }
 
