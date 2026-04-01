@@ -43,7 +43,7 @@ resource "aws_security_group" "app_sg" {
   from_port   = 22
   to_port     = 22
   protocol    = "tcp"
-  cidr_blocks = ["13.201.15.102/32"]   # Replace with your Jenkins server's public IP address
+  cidr_blocks = ["15.206.66.8/32"]   # Replace with your Jenkins server's public IP address
   description = "SSH from Jenkins server"
 }
 
