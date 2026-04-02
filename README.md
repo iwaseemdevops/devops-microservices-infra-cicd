@@ -2,17 +2,17 @@
 
 > **Full project walkthrough video (41 min):** [Watch on YouTube](https://www.youtube.com/watch?v=l08tL49kzO0)
 
-A production-grade DevOps project demonstrating complete end-to-end automation — from infrastructure provisioning to live microservices deployment — using Terraform, Jenkins, Docker, and AWS.
+A production-grade DevOps project demonstrating complete end-to-end automation - from infrastructure provisioning to live microservices deployment - using Terraform, Jenkins, Docker, and AWS.
 
 ---
 
 ## Live Demo Screenshots
 
-### Jenkins Pipeline — All Stages Green
+### Jenkins Pipeline - All Stages Green
 
 ![Jenkins Stage View](screenshots/jenkins-stage-view.png)
 
-### Pipeline Success — Live EC2 App URL
+### Pipeline Success - Live EC2 App URL
 
 ![Pipeline Success](screenshots/pipeline-success.png)
 
@@ -34,7 +34,7 @@ A production-grade DevOps project demonstrating complete end-to-end automation �
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Jenkins Server (24/7)                         │
 │              Provisioned by terraform-infra/                     │
-│                    AWS EC2 — Always On                           │
+│                    AWS EC2 - Always On                           │
 └────────────────────────┬────────────────────────────────────────┘
                          │ runs pipeline
                          ▼
@@ -75,13 +75,13 @@ A production-grade DevOps project demonstrating complete end-to-end automation �
 
 This project uses **two completely independent Terraform configurations** — a real-world pattern for separating persistent and ephemeral infrastructure.
 
-### Infrastructure 1 — Jenkins Server (`terraform-infra/`)
+### Infrastructure 1 - Jenkins Server (`terraform-infra/`)
 
 - **Purpose:** Runs 24/7 to host Jenkins and trigger pipelines
 - **Type:** Permanent — never destroyed
 - **Resources:** EC2 instance, VPC, security group, IAM role
 
-### Infrastructure 2 — App Server (`terraform-app/`)
+### Infrastructure 2 - App Server (`terraform-app/`)
 
 - **Purpose:** Hosts the microservices application
 - **Type:** Ephemeral — provisioned per deployment, destroyed after use
@@ -95,7 +95,7 @@ This project uses **two completely independent Terraform configurations** — a 
 
 After provisioning Jenkins infrastructure, you must add the Jenkins server's public IP to the app infrastructure security group. This allows Jenkins to SSH into the app EC2 instance during deployment.
 
-**Step 1 — Get Jenkins server public IP after `terraform apply`:**
+**Step 1 - Get Jenkins server public IP after `terraform apply`:**
 
 ```bash
 cd terraform-infra/
@@ -103,7 +103,7 @@ terraform output jenkins_public_ip
 # Example output: 15.206.66.8
 ```
 
-**Step 2 — Update app infrastructure security group in `terraform-app/`:**
+**Step 2 - Update app infrastructure security group in `terraform-app/`:**
 
 ```hcl
 # terraform-app/envs/dev/main.tf or modules/security-group/main.tf
@@ -113,7 +113,7 @@ cidr_blocks = ["15.206.66.8/32"]   # Replace with your Jenkins server's public I
 
 > This step is shown in detail in the [video walkthrough](https://www.youtube.com/watch?v=l08tL49kzO0) at the infrastructure setup section. **If you skip this step, the pipeline will fail at the SSH stage.**
 
-**Step 3 — Re-run terraform apply for app infra:**
+**Step 3 - Re-run terraform apply for app infra:**
 
 ```bash
 cd terraform-app/envs/dev/
@@ -174,7 +174,7 @@ App URL: http://<EC2_PUBLIC_IP>:3000
 | Category      | Tools                                                       |
 | ------------- | ----------------------------------------------------------- |
 | CI/CD         | Jenkins (declarative pipeline, parameterized builds)        |
-| IaC           | Terraform (modular — separate Jenkins + App infrastructure) |
+| IaC           | Terraform (modular - separate Jenkins + App infrastructure) |
 | Containers    | Docker, docker-compose                                      |
 | Cloud         | AWS EC2, VPC, Security Groups, IAM, key pairs               |
 | Reverse Proxy | Nginx                                                       |
@@ -214,7 +214,7 @@ App infrastructure is provisioned per deployment and destroyed after use. Jenkin
 
 ---
 
-### Step 1 — Provision Jenkins Infrastructure
+### Step 1 - Provision Jenkins Infrastructure
 
 ```bash
 cd terraform-infra/
@@ -227,7 +227,7 @@ Note the Jenkins server public IP from the output. You will need it in Step 2.
 
 ---
 
-### Step 2 — Update App Security Group with Jenkins IP
+### Step 2 - Update App Security Group with Jenkins IP
 
 Open `terraform-app/` and find the security group that allows SSH access. Update the CIDR block with your Jenkins server's IP:
 
@@ -239,7 +239,7 @@ cidr_blocks = ["15.206.66.8/32"]   # Replace with your Jenkins server's public I
 
 ---
 
-### Step 3 — Configure Jenkins
+### Step 3 - Configure Jenkins
 
 1. Install required plugins: Terraform, Pipeline, AWS Credentials, Git
 2. Add AWS credentials with ID `aws-creds`
@@ -249,7 +249,7 @@ cidr_blocks = ["15.206.66.8/32"]   # Replace with your Jenkins server's public I
 
 ---
 
-### Step 4 — Run the Pipeline
+### Step 4 - Run the Pipeline
 
 ```
 DESTROY = false
@@ -264,7 +264,7 @@ Run the pipeline. On success you will see:
 
 ---
 
-### Step 5 — Verify Deployment on EC2
+### Step 5 - Verify Deployment on EC2
 
 After pipeline success, SSH into the app EC2 instance to verify all containers:
 
@@ -298,7 +298,7 @@ f5586fd2dfa8   iwaseemdevops/product-service:latest    Up X minutes
 
 ---
 
-### Step 6 — Destroy Infrastructure (when done)
+### Step 6 - Destroy Infrastructure (when done)
 
 ```
 DESTROY = true
@@ -315,23 +315,32 @@ All AWS app infrastructure is removed automatically. Jenkins infrastructure rema
 devops-microservices-infra-cicd/
 │
 ├── microservices-shop/              # Application code + orchestration
-│   ├── frontend/                    # React frontend service
+│   ├── api-gateway/                 # API gateway service
+│   ├── frontend-service/            # React frontend
 │   ├── product-service/             # Product catalog API
 │   ├── offer-service/               # Discounts and offers API
 │   ├── db-service/                  # MongoDB service
+│   ├── nginx/
+│   │   └── nginx.conf               # Nginx reverse proxy config
 │   └── docker-compose.yaml          # Multi-container orchestration
 │
 ├── terraform-app/                   # App infrastructure (ephemeral)
-│   └── envs/
-│       └── dev/
-│           ├── main.tf              # EC2, VPC, security groups
-│           ├── variables.tf
-│           └── outputs.tf           # Exports app_server_public_ip
+│   ├── envs/
+│   │   └── dev/
+│   │       ├── main.tf              # Calls modules, provisions app EC2
+│   │       ├── variables.tf
+│   │       └── outputs.tf           # Exports app_server_public_ip
+│   └── modules/
+│       ├── ec2/                     # Reusable EC2 module
+│       ├── security-group/          # Reusable security group module
+│       └── vpc/                     # Reusable VPC module
 │
 ├── terraform-infra/                 # Jenkins infrastructure (permanent)
-│   ├── main.tf                      # Jenkins EC2, VPC, security groups
-│   ├── variables.tf
-│   └── outputs.tf                   # Exports jenkins_public_ip
+│   ├── jenkins/
+│   │   ├── main.tf                  # Jenkins EC2, VPC, security groups
+│   │   ├── variables.tf
+│   │   └── outputs.tf               # Exports jenkins_public_ip
+│   └── modules/                     # Reusable modules for Jenkins infra
 │
 ├── Jenkinsfile                      # Complete CI/CD pipeline definition
 ├── .gitignore
