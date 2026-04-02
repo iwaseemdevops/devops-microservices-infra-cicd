@@ -24,6 +24,8 @@ A production-grade DevOps project demonstrating complete end-to-end automation -
 
 ## Architecture Overview
 
+![Architecture](screenshots/Architecture.png)
+
 ```
                          ┌─────────────────────────────────────┐
                          │         GitHub Repository            │
